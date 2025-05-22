@@ -83,6 +83,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _sidebarItem(Icons.check_circle, "Approved Books", 1),
           _sidebarItem(Icons.people, "Users", 2),
           _sidebarItem(Icons.report, "Reports", 3),
+          _sidebarItem(Icons.swap_calls, "Completed Logs", 4),
 
           const Spacer(),
           _sidebarItem(Icons.logout, "Log out", -1),
@@ -166,10 +167,106 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return _buildUserList();
       case 3:
         return _buildReportsList();
+      case 4:
+        return _buildCompletedLogs();
 
       default:
         return const Center(child: Text("Select a page"));
     }
+  }
+
+  Widget _buildCompletedLogs() {
+    return StreamBuilder<QuerySnapshot>(
+      stream:
+          FirebaseFirestore.instance
+              .collection('successful_swaps')
+              .orderBy('timestamp', descending: true)
+              .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final logs = snapshot.data!.docs;
+
+        if (logs.isEmpty) {
+          return const Center(child: Text("Hiç başarılı takas bulunamadı."));
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(24),
+          itemCount: logs.length,
+          itemBuilder: (context, index) {
+            final data = logs[index].data() as Map<String, dynamic>;
+            final requesterId = data['request_by'];
+            final acceptedById = data['accepted_by'];
+            final offeredBookId = data['offered_book_id'];
+            final requestedBookId = data['requested_book_id'];
+            final timestamp = (data['timestamp'] as Timestamp).toDate();
+
+            return FutureBuilder<List<DocumentSnapshot>>(
+              future: Future.wait([
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(requesterId)
+                    .get(),
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(acceptedById)
+                    .get(),
+                FirebaseFirestore.instance
+                    .collection('market_books')
+                    .doc(offeredBookId)
+                    .get(),
+                FirebaseFirestore.instance
+                    .collection('market_books')
+                    .doc(requestedBookId)
+                    .get(),
+              ]),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: LinearProgressIndicator(),
+                  );
+                }
+
+                final requester =
+                    snapshot.data![0].data() as Map<String, dynamic>? ?? {};
+                final accepter =
+                    snapshot.data![1].data() as Map<String, dynamic>? ?? {};
+                final offeredBook =
+                    snapshot.data![2].data() as Map<String, dynamic>? ?? {};
+                final requestedBook =
+                    snapshot.data![3].data() as Map<String, dynamic>? ?? {};
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListTile(
+                    title: Text(
+                      "${requester['fullName'] ?? 'Kullanıcı'} → ${accepter['fullName'] ?? 'Kullanıcı'}",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      '"${offeredBook['title'] ?? 'Kitap'}" ↔ "${requestedBook['title'] ?? 'Kitap'}"\nTarih: $timestamp',
+                    ),
+                    isThreeLine: true,
+                    leading: const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildReportsList() {

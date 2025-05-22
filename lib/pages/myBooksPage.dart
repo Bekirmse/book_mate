@@ -106,67 +106,70 @@ class _MyBooksPageState extends State<MyBooksPage> {
           (context) => StatefulBuilder(
             builder:
                 (context, setState) => AlertDialog(
-                  title: const Text('Add New Book'),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  title: const Row(
+                    children: [
+                      Icon(Icons.library_add, color: Colors.indigo),
+                      SizedBox(width: 8),
+                      Text('Add New Book'),
+                    ],
+                  ),
                   content: SingleChildScrollView(
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        TextField(
-                          controller: titleController,
-                          decoration: const InputDecoration(
-                            labelText: 'Book Name',
-                          ),
-                        ),
-                        TextField(
-                          controller: authorController,
-                          decoration: const InputDecoration(
-                            labelText: 'Author',
-                          ),
-                        ),
-                        TextField(
-                          controller: editionController,
-                          decoration: const InputDecoration(
-                            labelText: 'Edition',
-                          ),
-                        ),
-                        TextField(
-                          controller: priceController,
-                          decoration: const InputDecoration(
-                            labelText: 'Price (₺)',
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
                         const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Text('Sold:'),
-                            Checkbox(
-                              value: isSold,
-                              onChanged: (value) {
-                                setState(() {
-                                  isSold = value ?? false;
-                                });
-                              },
-                            ),
-                          ],
+                        _buildTextField(
+                          titleController,
+                          'Book Name',
+                          Icons.book,
                         ),
-                        ElevatedButton(
+                        const SizedBox(height: 12),
+                        _buildTextField(
+                          authorController,
+                          'Author',
+                          Icons.person,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildTextField(
+                          editionController,
+                          'Edition',
+                          Icons.numbers,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildTextField(
+                          priceController,
+                          'Price (₺)',
+                          Icons.money,
+                          isNumber: true,
+                        ),
+
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
                           onPressed: () async {
                             await _pickImage();
                             setState(() {});
                           },
-                          child: const Text('Select Cover Image'),
+                          icon: const Icon(Icons.image, color: Colors.white),
+                          label: const Text(
+                            'Select Cover Image',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.indigo,
+                          ),
                         ),
+                        const SizedBox(height: 10),
                         if (_selectedImage != null)
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.file(_selectedImage!, height: 100),
+                            child: Image.file(_selectedImage!, height: 140),
                           ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            labelText: 'Category',
-                            border: OutlineInputBorder(),
-                          ),
+                          decoration: _dropdownDecoration('Category'),
                           value: selectedCategory,
                           items:
                               categories.map((category) {
@@ -175,18 +178,13 @@ class _MyBooksPageState extends State<MyBooksPage> {
                                   child: Text(category),
                                 );
                               }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              selectedCategory = value;
-                            });
-                          },
+                          onChanged:
+                              (value) =>
+                                  setState(() => selectedCategory = value),
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            labelText: 'Location',
-                            border: OutlineInputBorder(),
-                          ),
+                          decoration: _dropdownDecoration('Location'),
                           value: selectedLocation,
                           items:
                               locations.map((location) {
@@ -195,11 +193,9 @@ class _MyBooksPageState extends State<MyBooksPage> {
                                   child: Text(location),
                                 );
                               }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              selectedLocation = value;
-                            });
-                          },
+                          onChanged:
+                              (value) =>
+                                  setState(() => selectedLocation = value),
                         ),
                       ],
                     ),
@@ -210,6 +206,13 @@ class _MyBooksPageState extends State<MyBooksPage> {
                       child: const Text('Cancel'),
                     ),
                     ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                      ),
                       onPressed:
                           isSaving
                               ? null
@@ -260,6 +263,7 @@ class _MyBooksPageState extends State<MyBooksPage> {
                                   'approved': false,
                                   'category': selectedCategory ?? '',
                                   'location': selectedLocation ?? '',
+                                  'acquired_via': 'manual',
                                 });
 
                                 Navigator.pop(context);
@@ -277,11 +281,39 @@ class _MyBooksPageState extends State<MyBooksPage> {
                                   ),
                                 ),
                               )
-                              : const Text('Save'),
+                              : const Text(
+                                'Save',
+                                style: TextStyle(color: Colors.white),
+                              ),
                     ),
                   ],
                 ),
           ),
+    );
+  }
+
+  InputDecoration _dropdownDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    bool isNumber = false,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
     );
   }
 
@@ -491,7 +523,7 @@ class _MyBooksPageState extends State<MyBooksPage> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.white70,
         automaticallyImplyLeading: false,
         foregroundColor: Colors.black,
         elevation: 2,
@@ -508,143 +540,43 @@ class _MyBooksPageState extends State<MyBooksPage> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final myBooks = snapshot.data!.docs;
+          final rawBooks = snapshot.data!.docs;
+          final userId = user.uid;
 
-          if (myBooks.isEmpty) {
-            return const Center(
-              child: Text(
-                'No books have been added yet.',
-                style: TextStyle(fontSize: 16),
-              ),
-            );
-          }
+          return FutureBuilder<List<Map<String, dynamic>>>(
+            future: enrichBooksWithAcquisitionInfo(rawBooks, userId),
+            builder: (context, enrichedSnapshot) {
+              if (!enrichedSnapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: myBooks.length,
-            itemBuilder: (context, index) {
-              final book = myBooks[index];
-              final data = book.data() as Map<String, dynamic>;
+              final myBooks = enrichedSnapshot.data!;
 
-              final title = data['title'] ?? 'No Title';
-              final author = data['author'] ?? 'Unknown';
-              final price = data['price'] ?? 0.0;
-              final coverUrl = data['cover_url'] ?? '';
-              final edition = data['edition'] ?? '';
-              final isSold = data['is_sold'] ?? false;
-              final isApproved = data['approved'] ?? false;
+              if (myBooks.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'No books have been added yet.',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                );
+              }
 
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF7F7F7),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 4,
-                      offset: const Offset(2, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        bottomLeft: Radius.circular(12),
-                      ),
-                      child: Image.network(
-                        coverUrl.isNotEmpty
-                            ? coverUrl
-                            : 'https://via.placeholder.com/90x120.png?text=No+Image',
-                        width: 90,
-                        height: 120,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Author: $author',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            Text(
-                              'Edition: $edition',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            Text(
-                              'Status: ${isSold ? 'Sold' : 'Available'}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isSold ? Colors.red : Colors.green,
-                              ),
-                            ),
-                            Text(
-                              '$price ₺',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.teal,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color:
-                                    isApproved ? Colors.green : Colors.orange,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                isApproved
-                                    ? '✔ Available in the Market'
-                                    : '⏳ Pending Approval',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Column(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _editBookDialog(book),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteBook(book.id),
-                        ),
-                      ],
-                    ),
-                  ],
+              return Padding(
+                padding: const EdgeInsets.all(12),
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: myBooks.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.65,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  itemBuilder: (context, index) {
+                    final book = myBooks[index];
+                    return _buildBookCard(book);
+                  },
                 ),
               );
             },
@@ -697,6 +629,531 @@ class _MyBooksPageState extends State<MyBooksPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<String> getAcquisitionType(String bookId, String currentUserId) async {
+    final firestore = FirebaseFirestore.instance;
+
+    // Purchase kontrolü
+    final purchaseQuery =
+        await firestore
+            .collection('successful_purchases')
+            .where('book_id', isEqualTo: bookId)
+            .where('buyer_id', isEqualTo: currentUserId)
+            .limit(1)
+            .get();
+
+    if (purchaseQuery.docs.isNotEmpty) return 'purchase';
+
+    // Swap kontrolü
+    final swapQuery =
+        await firestore
+            .collection('successful_swaps')
+            .where('requested_book_id', isEqualTo: bookId)
+            .where('accepted_by', isEqualTo: currentUserId)
+            .limit(1)
+            .get();
+
+    if (swapQuery.docs.isNotEmpty) return 'swap';
+
+    return 'manual'; // Kendisi eklemişse
+  }
+
+  Future<List<Map<String, dynamic>>> enrichBooksWithAcquisitionInfo(
+    List<QueryDocumentSnapshot> books,
+    String currentUserId,
+  ) async {
+    final enriched = <Map<String, dynamic>>[];
+
+    for (final doc in books) {
+      final data = doc.data() as Map<String, dynamic>;
+      final bookId = doc.id;
+
+      final acquiredVia = await getAcquisitionType(bookId, currentUserId);
+      data['acquired_via'] = acquiredVia;
+
+      enriched.add(data);
+    }
+
+    return enriched;
+  }
+
+  void _editBookDialogById(String bookId) async {
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('market_books')
+            .doc(bookId)
+            .get();
+    if (doc.exists) {
+      await _editBookDialog(doc);
+    }
+  }
+
+  Widget _buildBookCard(Map<String, dynamic> book) {
+    final String? title = book['title'];
+    final String? author = book['author'];
+    final String? coverUrl = book['cover_url'];
+    final double? price = book['price'];
+    final String acquiredVia = book['acquired_via'] ?? 'manual';
+    final isApproved = book['approved'] ?? false;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        image: DecorationImage(
+          image: NetworkImage(coverUrl ?? ''),
+          fit: BoxFit.cover,
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Cover image
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(coverUrl ?? '', fit: BoxFit.cover),
+            ),
+          ),
+
+          // Alt kısımdaki metinler
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(16),
+                ),
+                gradient: LinearGradient(
+                  colors: [Colors.black87, Colors.transparent],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title ?? 'Kitap',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'by ${author ?? ''}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (price != null)
+                    Text(
+                      '${price.toStringAsFixed(2)} ₺',
+                      style: const TextStyle(
+                        color: Colors.tealAccent,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+
+          // Üst sağ köşedeki etiket
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: () {
+                  if (acquiredVia == 'purchase') return Colors.blueAccent;
+                  if (acquiredVia == 'swap') return Colors.orange;
+                  return isApproved ? Colors.green : Colors.redAccent;
+                }(),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(() {
+                if (acquiredVia == 'purchase') return 'Purchased';
+                if (acquiredVia == 'swap') return 'Swapped';
+                return isApproved ? 'Approved' : 'Waiting for approval';
+              }(), style: const TextStyle(color: Colors.white, fontSize: 10)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildContinueSection(List<Map<String, dynamic>> books) {
+    final swappedBooks =
+        books.where((b) => b['acquired_via'] == 'swap').toList();
+
+    if (swappedBooks.isEmpty) return const SizedBox();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'Continue',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 140,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: swappedBooks.length,
+            itemBuilder: (context, index) {
+              final data = swappedBooks[index];
+              return Container(
+                width: 110,
+                margin: const EdgeInsets.only(right: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        data['cover_url'] ?? '',
+                        height: 100,
+                        width: 110,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Expanded(
+                      child: Text(
+                        data['title'] ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'by ${data['author'] ?? ''}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+
+                    const Text(
+                      'Swapped',
+                      style: TextStyle(fontSize: 11, color: Colors.orange),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget buildManualSection(List<Map<String, dynamic>> books) {
+    final manualBooks =
+        books.where((b) => b['acquired_via'] == 'manual').toList();
+
+    if (manualBooks.isEmpty) return const SizedBox();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'Your Uploads',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 270, // daha yüksek
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: manualBooks.length,
+            itemBuilder: (context, index) {
+              final data = manualBooks[index];
+              final isApproved = data['approved'] ?? false;
+
+              return Container(
+                width: 180,
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  image: DecorationImage(
+                    image: NetworkImage(data['cover_url'] ?? ''),
+                    fit: BoxFit.cover,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    // Üstte onay rozeti
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              isApproved
+                                  ? Colors.greenAccent.shade700
+                                  : Colors.orange,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isApproved ? Icons.check_circle : Icons.schedule,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isApproved ? 'Onaylandı' : 'Bekliyor',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Alt bilgi alanı
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(20),
+                          ),
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.black.withOpacity(0.9),
+                              Colors.black.withOpacity(0.4),
+                              Colors.transparent,
+                            ],
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              data['title'] ?? '',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                shadows: [
+                                  Shadow(color: Colors.black, blurRadius: 4),
+                                ],
+                                height: 1.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'by ${data['author'] ?? ''}',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontStyle: FontStyle.italic,
+                                shadows: [
+                                  Shadow(color: Colors.black, blurRadius: 2),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${data['price'] ?? 0} ₺',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Colors.tealAccent,
+                                shadows: [
+                                  Shadow(color: Colors.black, blurRadius: 2),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed:
+                                      () =>
+                                          _editBookDialogById(data['book_id']),
+                                  iconSize: 20,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.redAccent,
+                                  ),
+                                  onPressed: () => _deleteBook(data['book_id']),
+                                  iconSize: 20,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget buildPurchasedSection(List<Map<String, dynamic>> books) {
+    final purchasedBooks =
+        books.where((b) => b['acquired_via'] == 'purchase').toList();
+
+    if (purchasedBooks.isEmpty) return const SizedBox();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'Top Picks',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 200,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: purchasedBooks.length,
+            itemBuilder: (context, index) {
+              final data = purchasedBooks[index];
+              return Container(
+                width: 150,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  image: DecorationImage(
+                    image: NetworkImage(data['cover_url'] ?? ''),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      bottom: 12,
+                      left: 12,
+                      right: 12,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            data['title'] ?? '',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              shadows: [
+                                Shadow(color: Colors.black, blurRadius: 2),
+                              ],
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'by ${data['author'] ?? ''}',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blueAccent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Purchased',
+                          style: TextStyle(fontSize: 10, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,4 +1,4 @@
-// ignore_for_file: file_names, use_build_context_synchronously
+// ignore_for_file: file_names, use_build_context_synchronously, sort_child_properties_last
 
 import 'dart:io';
 
@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'mainPage.dart';
-
 import 'myBooksPage.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -59,15 +58,11 @@ class _ProfilePageState extends State<ProfilePage> {
     await storageRef.putFile(file);
     final url = await storageRef.getDownloadURL();
 
-    // Firestore güncelle
     await FirebaseFirestore.instance.collection('users').doc(user!.uid).update({
       'profile_image_url': url,
     });
 
-    setState(() {
-      profileImageUrl = url;
-    });
-
+    setState(() => profileImageUrl = url);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Profil resmi güncellendi.')));
@@ -77,11 +72,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final email = user!.email;
     await FirebaseAuth.instance.sendPasswordResetEmail(email: email!);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'A password reset link has been sent to your email address.',
-        ),
-      ),
+      const SnackBar(content: Text('Password reset link sent to your email.')),
     );
   }
 
@@ -98,130 +89,145 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Profil'),
+        title: const Text(
+          'Profile',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.white70,
+        foregroundColor: Colors.black,
+        elevation: 2,
         automaticallyImplyLeading: false,
       ),
       body:
           isLoading
               ? const Center(child: CircularProgressIndicator())
-              : Padding(
+              : SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 50,
-                            backgroundColor: Colors.grey[200],
-                            backgroundImage:
-                                profileImageUrl != null
-                                    ? NetworkImage(profileImageUrl!)
-                                    : null,
-                            child:
-                                profileImageUrl == null
-                                    ? const Icon(
-                                      Icons.person,
-                                      size: 50,
-                                      color: Colors.grey,
-                                    )
-                                    : null,
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: GestureDetector(
-                              onTap: _pickProfileImage,
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.indigo,
-                                  shape: BoxShape.circle,
-                                ),
-                                padding: const EdgeInsets.all(6),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.white,
+                          backgroundImage:
+                              profileImageUrl != null
+                                  ? NetworkImage(profileImageUrl!)
+                                  : null,
+                          child:
+                              profileImageUrl == null
+                                  ? const Icon(
+                                    Icons.person,
+                                    size: 60,
+                                    color: Colors.grey,
+                                  )
+                                  : null,
+                        ),
+                        GestureDetector(
+                          onTap: _pickProfileImage,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.indigo,
+                              borderRadius: BorderRadius.circular(30),
                             ),
+                            padding: const EdgeInsets.all(8),
+                            child: const Icon(
+                              Icons.edit,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        leading: const Icon(Icons.person_outline),
+                        title: Text(
+                          fullName,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          user!.email ?? '',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.lock_outline),
+                            title: const Text('Change Password'),
+                            onTap: _changePassword,
+                          ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(
+                              Icons.logout,
+                              color: Colors.red,
+                            ),
+                            title: const Text('Logout'),
+                            onTap: _logout,
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Full Name: $fullName',
-                      style: const TextStyle(fontSize: 18),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Email: ${user!.email}',
-                      style: const TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                    const Divider(height: 30),
-
-                    ListTile(
-                      leading: const Icon(Icons.lock),
-                      title: const Text('Change Password'),
-                      onTap: _changePassword,
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.logout),
-                      title: const Text('Sign Out'),
-                      onTap: _logout,
-                    ),
                   ],
                 ),
               ),
-
-      // Bottom Navigation Bar
+      floatingActionButton: FloatingActionButton(
+        onPressed: null,
+        backgroundColor: Colors.indigo,
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             IconButton(
               icon: const Icon(Icons.home),
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MainPage()),
-                );
-              },
+              onPressed:
+                  () => Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MainPage()),
+                  ),
             ),
             IconButton(
               icon: const Icon(Icons.menu_book),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MyBooksPage()),
-                );
-              },
+              onPressed:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MyBooksPage()),
+                  ),
             ),
             const SizedBox(width: 48),
             IconButton(
               icon: const Icon(Icons.shopping_cart),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MarketPage()),
-                );
-              },
+              onPressed:
+                  () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MarketPage()),
+                  ),
             ),
             IconButton(icon: const Icon(Icons.person), onPressed: () {}),
           ],
         ),
       ),
-
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: Colors.indigo,
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 }

@@ -1,6 +1,7 @@
-// ignore_for_file: file_names, use_build_context_synchronously
+// ignore_for_file: file_names, use_build_context_synchronously, deprecated_member_use, duplicate_ignore, unnecessary_string_escapes
 
 import 'package:book_mate/pages/chatPage.dart';
+import 'package:book_mate/pages/fake_payment_page.dart';
 import 'package:book_mate/pages/mainPage.dart';
 import 'package:book_mate/pages/myBooksPage.dart';
 import 'package:book_mate/pages/profilePage.dart';
@@ -20,10 +21,18 @@ class MarketPage extends StatefulWidget {
 class _MarketPageState extends State<MarketPage> {
   Set<String> favoriteBookIds = {};
   final ScrollController _scrollController = ScrollController();
+  final uid = FirebaseAuth.instance.currentUser!.uid;
+  final userEmail =
+      FirebaseAuth.instance.currentUser!.email; // veya displayName
+
+  String searchKeyword = '';
 
   @override
   void initState() {
     super.initState();
+
+    initializeMissingFields();
+
     fetchFavoriteIds().then((ids) {
       setState(() {
         favoriteBookIds = ids;
@@ -96,13 +105,16 @@ class _MarketPageState extends State<MarketPage> {
       query = query.where('location', isEqualTo: selectedLocation);
     }
 
-    // Firestore fiyat aralığı sorgusu yoksa client-side filtre uygula
     final snapshot = await query.get();
 
     return snapshot.docs.where((doc) {
       final price = (doc['price'] ?? 0).toDouble();
+      final title = (doc['title'] ?? '').toString().toLowerCase();
+
       return price >= selectedPriceRange.start &&
-          price <= selectedPriceRange.end;
+          price <= selectedPriceRange.end &&
+          (searchKeyword.isEmpty ||
+              title.contains(searchKeyword.toLowerCase()));
     }).toList();
   }
 
@@ -126,21 +138,58 @@ class _MarketPageState extends State<MarketPage> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text("Report Book"),
-            content: TextField(
-              controller: reasonController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: "Please specify the reason...",
-                border: OutlineInputBorder(),
-              ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+            contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+            title: Row(
+              children: const [
+                Icon(Icons.report_problem, color: Colors.redAccent),
+                SizedBox(width: 8),
+                Text(
+                  "Report Book",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Briefly explain the situation that led to the notification:",
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: reasonController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: "Example: Fake listing, incorrect information.",
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actionsPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("Cancel"),
+                child: const Text(
+                  "Cancel",
+                  style: TextStyle(color: Colors.grey),
+                ),
               ),
-              ElevatedButton(
+              ElevatedButton.icon(
                 onPressed: () async {
                   final user = FirebaseAuth.instance.currentUser;
                   if (user == null) return;
@@ -155,10 +204,28 @@ class _MarketPageState extends State<MarketPage> {
 
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Notification sent.")),
+                    const SnackBar(
+                      content: Text(
+                        "Your report has been successfully submitted.",
+                      ),
+                    ),
                   );
                 },
-                child: const Text("Send"),
+                icon: const Icon(Icons.send, size: 18, color: Colors.white),
+                label: const Text(
+                  "Send",
+                  style: TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
               ),
             ],
           ),
@@ -189,388 +256,476 @@ class _MarketPageState extends State<MarketPage> {
           }
 
           final books = snapshot.data!;
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Search book..',
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
+          if (books.isEmpty) {
+            return const SizedBox(
+              height: 1000,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.info_outline, size: 48, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      "Filtrelere uygun kitap bulunamadı.",
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            );
+          }
 
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: selectedCategory,
-                          decoration: const InputDecoration(
-                            labelText: 'Category',
-                          ),
-                          items:
-                              categories.map((category) {
-                                return DropdownMenuItem(
-                                  value: category == 'None' ? null : category,
-                                  child: Text(category),
-                                );
-                              }).toList(),
-                          onChanged: (value) {
-                            setState(() => selectedCategory = value);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: selectedLocation,
-                          decoration: const InputDecoration(
-                            labelText: 'Location',
-                          ),
-                          items:
-                              locations.map((location) {
-                                return DropdownMenuItem(
-                                  value: location == 'None' ? null : location,
-                                  child: Text(location),
-                                );
-                              }).toList(),
-                          onChanged: (value) {
-                            setState(() => selectedLocation = value);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
+          return ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            itemCount: books.length,
+            itemBuilder: (context, index) {
+              final book = books[index];
+              final bookId = book.id;
+              final bookOwnerId = book['owner_id'];
+              final isCurrentUserOwner =
+                  FirebaseAuth.instance.currentUser?.uid == bookOwnerId;
 
-                  const SizedBox(height: 16),
-
-                  Text(
-                    "Max Price: ${selectedPriceRange.end.toStringAsFixed(0)} ₺",
-                  ),
-                  RangeSlider(
-                    values: selectedPriceRange,
-                    min: 0,
-                    max: 500,
-                    divisions: 50,
-                    labels: RangeLabels(
-                      selectedPriceRange.start.round().toString(),
-                      selectedPriceRange.end.round().toString(),
+              return Container(
+                margin: const EdgeInsets.only(bottom: 24),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      blurRadius: 10,
+                      color: Colors.black.withOpacity(0.05),
+                      offset: const Offset(0, 4),
                     ),
-                    onChanged: (values) {
-                      setState(() {
-                        selectedPriceRange = values;
-                      });
-                    },
-                  ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(20),
+                      ),
+                      child: Stack(
+                        children: [
+                          Image.network(
+                            book['cover_url'],
+                            height: 600,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                          Positioned(
+                            top: 12,
+                            right: 12,
+                            child: GestureDetector(
+                              onTap: () async {
+                                final userId =
+                                    FirebaseAuth.instance.currentUser?.uid;
+                                if (userId == null) return;
 
-                  const SizedBox(height: 12),
+                                final favoritesRef = FirebaseFirestore.instance
+                                    .collection('users')
+                                    .doc(userId)
+                                    .collection('favorites')
+                                    .doc(bookId);
 
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        selectedCategory = null;
-                        selectedLocation = null;
-                        selectedPriceRange = const RangeValues(0, 500);
-                      });
-                    },
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Reset Filters'),
-                    style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  ),
-
-                  const SizedBox(height: 16),
-                  const Center(child: Chip(label: Text('Featured Books'))),
-
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    height: 180,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: books.length,
-                      itemBuilder: (context, index) {
-                        final book = books[index];
-                        return Container(
-                          width: 120,
-                          margin: const EdgeInsets.only(right: 12),
-                          child: Column(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  book['cover_url'],
-                                  width: 120,
-                                  height: 150,
-                                  fit: BoxFit.cover,
-                                ),
+                                if (favoriteBookIds.contains(bookId)) {
+                                  await favoritesRef.delete();
+                                  setState(
+                                    () => favoriteBookIds.remove(bookId),
+                                  );
+                                } else {
+                                  await favoritesRef.set({
+                                    'title': book['title'],
+                                    'bookRef': FirebaseFirestore.instance
+                                        .collection('market_books')
+                                        .doc(bookId),
+                                  });
+                                  setState(() => favoriteBookIds.add(bookId));
+                                }
+                              },
+                              child: Icon(
+                                favoriteBookIds.contains(bookId)
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                color: Colors.redAccent,
+                                size: 28,
                               ),
-                              const SizedBox(height: 6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            book['title'] ?? '',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'by ${book['author'] ?? ''}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontStyle: FontStyle.italic,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const Divider(height: 20),
+                          Wrap(
+                            runSpacing: 8,
+                            children: [
+                              _buildDetailRow(
+                                Icons.bookmark_outline,
+                                'Edition',
+                                book['edition'],
+                              ),
+                              _buildDetailRow(
+                                Icons.sell_outlined,
+                                'Price',
+                                '${book['price']} ₺',
+                              ),
+                              _buildDetailRow(
+                                Icons.category,
+                                'Category',
+                                book['category'],
+                              ),
+                              _buildDetailRow(
+                                Icons.location_on_outlined,
+                                'Location',
+                                book['location'],
+                              ),
+                              _buildDetailRow(
+                                Icons.person_outline,
+                                'Seller',
+                                book['owner_name'],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              const Text(
+                                "Average Score: ",
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              const Icon(
+                                Icons.star,
+                                color: Colors.orange,
+                                size: 18,
+                              ),
                               Text(
-                                book['title'] ?? '',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                (book['average_rating'] as double? ?? 0.0)
+                                    .toStringAsFixed(1),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'New Books',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  GridView.builder(
-                    controller: _scrollController,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 1,
-                          childAspectRatio: 2.4,
-                          mainAxisSpacing: 12,
-                        ),
-                    itemCount: books.length,
-                    itemBuilder: (context, index) {
-                      final book = books[index];
-                      final bookId = book.id;
-                      final bookOwnerId = book['owner_id'];
-                      if (bookOwnerId == null) {
-                        return const SizedBox(); // ya da skip
-                      }
 
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              // ignore: deprecated_member_use
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
+                          const SizedBox(height: 10),
 
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                book['cover_url'],
-                                width: 70,
-                                height: 100,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    book['title'] ?? '',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                          Row(),
+                          if (!isCurrentUserOwner)
+                            Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    _buildActionButton(
+                                      Icons.swap_horiz,
+                                      'Swap',
+                                      Colors.orange,
+                                      () {
+                                        _openSwapDialog(
+                                          context,
+                                          book,
+                                          bookId,
+                                          bookOwnerId,
+                                        );
+                                      },
                                     ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    book['author'] ?? '',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 13,
+                                    const SizedBox(width: 10),
+                                    _buildActionButton(
+                                      Icons.shopping_cart,
+                                      'Buy',
+                                      Colors.green,
+                                      () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder:
+                                                (_) => FakePaymentPage(
+                                                  bookId: bookId,
+                                                  bookTitle: book['title'],
+                                                  bookPrice:
+                                                      (book['price'] ?? 0)
+                                                          .toDouble(),
+                                                  currentOwnerId: bookOwnerId,
+                                                ),
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    '${book['price']} ₺',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.green,
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    _buildActionButton(
+                                      Icons.message,
+                                      'Send Message',
+                                      Colors.blue,
+                                      () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder:
+                                                (_) => ChatPage(
+                                                  receiverId: bookOwnerId,
+                                                  bookTitle: book['title'],
+                                                ),
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (FirebaseAuth.instance.currentUser?.uid !=
-                                bookOwnerId)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      ElevatedButton(
-                                        onPressed: () async {
-                                          await FirebaseFirestore.instance
+                                    const SizedBox(width: 10),
+                                    _buildActionButton(
+                                      Icons.report,
+                                      'Report',
+                                      Colors.red,
+                                      () {
+                                        _showReportDialog(bookId, bookOwnerId);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      "Comments & Ratings",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    FutureBuilder<QuerySnapshot>(
+                                      future:
+                                          FirebaseFirestore.instance
                                               .collection('market_books')
                                               .doc(bookId)
-                                              .update({'sold': true});
-
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Kitap başarıyla satın alındı!',
-                                              ),
-                                            ),
+                                              .collection('ratings')
+                                              .orderBy(
+                                                'timestamp',
+                                                descending: true,
+                                              )
+                                              .limit(3)
+                                              .get(),
+                                      builder: (context, snap) {
+                                        if (!snap.hasData) {
+                                          return const Center(
+                                            child: CircularProgressIndicator(),
                                           );
-                                          setState(() {});
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                          ),
-                                          minimumSize: const Size(80, 36),
-                                          textStyle: const TextStyle(
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        child: const Text("Buy"),
-                                      ),
-
-                                      const SizedBox(height: 0),
-                                      ElevatedButton(
-                                        onPressed: () async {
-                                          final currentUser =
-                                              FirebaseAuth.instance.currentUser;
-                                          if (currentUser == null) return;
-
-                                          final existing =
-                                              await FirebaseFirestore.instance
-                                                  .collection('notifications')
-                                                  .where(
-                                                    'book_id',
-                                                    isEqualTo: bookId,
-                                                  )
-                                                  .where(
-                                                    'request_by',
-                                                    isEqualTo: currentUser.uid,
-                                                  )
-                                                  .get();
-
-                                          if (existing.docs.isEmpty) {
-                                            await FirebaseFirestore.instance
-                                                .collection('notifications')
-                                                .add({
-                                                  'type': 'exchange_request',
-                                                  'book_id': bookId,
-                                                  'book_owner': bookOwnerId,
-                                                  'request_by': currentUser.uid,
-                                                  'timestamp': Timestamp.now(),
-                                                });
-
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Takas isteği gönderildi!',
-                                                ),
-                                              ),
-                                            );
-                                          } else {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Zaten takas isteği göndermişsiniz!',
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.orange,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                          ),
-                                          minimumSize: const Size(80, 36),
-                                          textStyle: const TextStyle(
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        child: const Text("Swap"),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder:
-                                                  (_) => ChatPage(
-                                                    receiverId: bookOwnerId,
-                                                    bookTitle:
-                                                        book['title'] ?? '',
-                                                  ),
-                                            ),
+                                        }
+                                        final docs = snap.data!.docs;
+                                        if (docs.isEmpty) {
+                                          return const Text(
+                                            "No comments have been made yet.",
                                           );
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.blueAccent,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                          ),
-                                          minimumSize: const Size(80, 36),
-                                          textStyle: const TextStyle(
-                                            fontSize: 14,
+                                        }
+
+                                        return Column(
+                                          children:
+                                              docs.map((doc) {
+                                                final data =
+                                                    doc.data()
+                                                        as Map<String, dynamic>;
+                                                final stars =
+                                                    data['stars'] ?? 0;
+                                                final comment =
+                                                    data['comment'] ?? '';
+                                                final timestamp =
+                                                    (data['timestamp']
+                                                            as Timestamp?)
+                                                        ?.toDate();
+                                                final userId = doc.id;
+
+                                                return FutureBuilder<
+                                                  DocumentSnapshot
+                                                >(
+                                                  future:
+                                                      FirebaseFirestore.instance
+                                                          .collection('users')
+                                                          .doc(userId)
+                                                          .get(),
+                                                  builder: (context, userSnap) {
+                                                    String username =
+                                                        "Kullanıcı";
+                                                    if (userSnap.hasData &&
+                                                        userSnap.data!.exists) {
+                                                      username =
+                                                          userSnap
+                                                              .data!['fullName'] ??
+                                                          "User";
+                                                    }
+
+                                                    return Card(
+                                                      margin:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 6,
+                                                          ),
+                                                      elevation: 2,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
+                                                      ),
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              12,
+                                                            ),
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Row(
+                                                              children: [
+                                                                const Icon(
+                                                                  Icons.person,
+                                                                  size: 20,
+                                                                ),
+                                                                const SizedBox(
+                                                                  width: 6,
+                                                                ),
+                                                                Text(
+                                                                  username,
+                                                                  style: const TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold,
+                                                                  ),
+                                                                ),
+                                                                const Spacer(),
+                                                                Row(
+                                                                  children: List.generate(5, (
+                                                                    index,
+                                                                  ) {
+                                                                    return Icon(
+                                                                      index <
+                                                                              stars
+                                                                          ? Icons
+                                                                              .star
+                                                                          : Icons
+                                                                              .star_border,
+                                                                      color:
+                                                                          Colors
+                                                                              .amber,
+                                                                      size: 16,
+                                                                    );
+                                                                  }),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                            if (timestamp !=
+                                                                null) ...[
+                                                              const SizedBox(
+                                                                height: 4,
+                                                              ),
+                                                              Text(
+                                                                "${timestamp.day}.${timestamp.month}.${timestamp.year}",
+                                                                style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  color:
+                                                                      Colors
+                                                                          .grey[600],
+                                                                ),
+                                                              ),
+                                                            ],
+                                                            const SizedBox(
+                                                              height: 8,
+                                                            ),
+                                                            Text(
+                                                              comment,
+                                                              style:
+                                                                  const TextStyle(
+                                                                    fontSize:
+                                                                        14,
+                                                                  ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                );
+                                              }).toList(),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ElevatedButton.icon(
+                                      icon: const Icon(
+                                        Icons.rate_review,
+                                        color: Colors.white,
+                                      ),
+                                      label: const Text(
+                                        "Rate / Comment",
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.indigo,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 12,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
                                           ),
                                         ),
-                                        child: const Text("Send Message"),
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 8),
-                                  PopupMenuButton<String>(
-                                    icon: const Icon(Icons.more_vert),
-                                    onSelected: (value) {
-                                      if (value == 'report') {
-                                        _showReportDialog(bookId, bookOwnerId);
-                                      }
-                                    },
-                                    itemBuilder:
-                                        (context) => [
-                                          const PopupMenuItem(
-                                            value: 'report',
-                                            child: Text('Report this book'),
+                                      onPressed:
+                                          () => _showRatingDialog(
+                                            context,
+                                            bookId,
                                           ),
-                                        ],
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           );
         },
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showFilterBottomSheet(context),
+        backgroundColor: Colors.indigo,
+        tooltip: 'Filter Books',
+        child: const Icon(Icons.filter_alt),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
@@ -608,6 +763,673 @@ class _MarketPageState extends State<MarketPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void initializeMissingFields() async {
+    final snapshot =
+        await FirebaseFirestore.instance.collection('market_books').get();
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
+      final updates = <String, dynamic>{};
+
+      if (!data.containsKey('average_rating')) {
+        updates['average_rating'] = 0.0;
+      }
+      if (!data.containsKey('user_ratings')) {
+        updates['user_ratings'] = {};
+      }
+
+      if (updates.isNotEmpty) {
+        await doc.reference.update(updates);
+      }
+    }
+  }
+
+  void _showRatingDialog(BuildContext context, String bookId) async {
+    showDialog(
+      context: context,
+      builder: (context) {
+        int selectedStars = 0;
+        TextEditingController commentCtrl = TextEditingController();
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text("Puan Ver"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (index) {
+                      return IconButton(
+                        icon: Icon(
+                          index < selectedStars
+                              ? Icons.star
+                              : Icons.star_border,
+                          color: Colors.amber,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            selectedStars = index + 1;
+                          });
+                        },
+                      );
+                    }),
+                  ),
+                  TextField(
+                    controller: commentCtrl,
+                    decoration: const InputDecoration(
+                      hintText: "Yorum yazın (isteğe bağlı)",
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("İptal"),
+                ),
+                ElevatedButton(
+                  child: const Text("Gönder"),
+                  onPressed: () async {
+                    final uid = FirebaseAuth.instance.currentUser!.uid;
+                    final userEmail = FirebaseAuth.instance.currentUser!.email;
+
+                    await FirebaseFirestore.instance
+                        .collection('market_books')
+                        .doc(bookId)
+                        .collection('ratings')
+                        .doc(uid)
+                        .set({
+                          'stars': selectedStars,
+                          'comment': commentCtrl.text.trim(),
+                          'timestamp': Timestamp.now(),
+                          'user': userEmail,
+                        });
+
+                    // Ortalama güncelleme
+                    final ratingsSnap =
+                        await FirebaseFirestore.instance
+                            .collection('market_books')
+                            .doc(bookId)
+                            .collection('ratings')
+                            .get();
+
+                    final total = ratingsSnap.docs.fold<int>(
+                      0,
+                      (sum, doc) => sum + ((doc['stars'] ?? 0) as int),
+                    );
+                    final avg = total / ratingsSnap.docs.length;
+
+                    await FirebaseFirestore.instance
+                        .collection('market_books')
+                        .doc(bookId)
+                        .update({'average_rating': avg});
+
+                    Navigator.pop(context);
+                    setState(() {}); // Ana ekranı güncelle
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildActionButton(
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onPressed,
+  ) {
+    return Expanded(
+      child: ElevatedButton.icon(
+        icon: Icon(icon, color: Colors.white, size: 18),
+        label: Text(label, style: const TextStyle(color: Colors.white)),
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, dynamic value) {
+    if (value == null || value.toString().isEmpty) return const SizedBox();
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: Colors.indigo),
+        const SizedBox(width: 6),
+        Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+        Expanded(
+          child: Text(value.toString(), overflow: TextOverflow.ellipsis),
+        ),
+      ],
+    );
+  }
+
+  void _openSwapDialog(
+    BuildContext context,
+    DocumentSnapshot book,
+    String bookId,
+    String bookOwnerId,
+  ) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    final myBooksSnapshot =
+        await FirebaseFirestore.instance
+            .collection('market_books')
+            .where('owner_id', isEqualTo: currentUser.uid)
+            .where('approved', isEqualTo: true)
+            .get();
+
+    if (myBooksSnapshot.docs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("You must have an approved book to trade."),
+        ),
+      );
+      return;
+    }
+
+    String? selectedBookId;
+    String? selectedBookTitle;
+    double? selectedBookPrice;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                "Select your book for swap",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView(
+                  shrinkWrap: true,
+                  children:
+                      myBooksSnapshot.docs.map((doc) {
+                        final title = doc['title'] ?? '';
+                        final price = doc['price']?.toDouble() ?? 0.0;
+                        final docId = doc.id;
+                        final isSelected = selectedBookId == docId;
+
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              selectedBookId = docId;
+                              selectedBookTitle = title;
+                              selectedBookPrice = price;
+                            });
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 6),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color:
+                                  isSelected
+                                      ? Colors.indigo[50]
+                                      : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color:
+                                    isSelected
+                                        ? Colors.indigo
+                                        : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.book, color: Colors.indigo),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        title,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "$price ₺",
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (isSelected)
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.indigo,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("İptal"),
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.send, size: 18),
+                  label: const Text("Gönder"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () async {
+                    if (selectedBookId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Please choose a book.")),
+                      );
+                      return;
+                    }
+
+                    await FirebaseFirestore.instance
+                        .collection('notifications')
+                        .add({
+                          'type': 'exchange_request',
+                          'book_id': bookId,
+                          'book_title': book['title'] ?? '',
+                          'book_owner': bookOwnerId,
+                          'request_by': currentUser.uid,
+                          'offered_book_id': selectedBookId,
+                          'offered_book_title': selectedBookTitle ?? '',
+                          'offered_book_price': selectedBookPrice ?? 0,
+                          'timestamp': Timestamp.now(),
+                        });
+
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Trade request sent.")),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showFilterBottomSheet(BuildContext context) {
+    TextEditingController searchController = TextEditingController(
+      text: searchKeyword,
+    ); // mevcut arama kelimesi
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+          child: Wrap(
+            runSpacing: 16,
+            children: [
+              const Center(
+                child: Text(
+                  'Kitapları Filtrele',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ),
+
+              // 🔍 Arama Kutusu
+              TextField(
+                controller: searchController,
+                decoration: InputDecoration(
+                  labelText: 'Kitap Adı',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+
+              // 📚 Kategori Seçimi
+              DropdownButtonFormField<String>(
+                value: selectedCategory,
+                decoration: InputDecoration(
+                  labelText: 'Kategori',
+                  prefixIcon: const Icon(Icons.category),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                items:
+                    categories.map((category) {
+                      return DropdownMenuItem(
+                        value: category == 'None' ? null : category,
+                        child: Text(category),
+                      );
+                    }).toList(),
+                onChanged: (value) {
+                  setState(() => selectedCategory = value);
+                },
+              ),
+
+              // 📍 Lokasyon Seçimi
+              DropdownButtonFormField<String>(
+                value: selectedLocation,
+                decoration: InputDecoration(
+                  labelText: 'Lokasyon',
+                  prefixIcon: const Icon(Icons.location_on),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                items:
+                    locations.map((location) {
+                      return DropdownMenuItem(
+                        value: location == 'None' ? null : location,
+                        child: Text(location),
+                      );
+                    }).toList(),
+                onChanged: (value) {
+                  setState(() => selectedLocation = value);
+                },
+              ),
+
+              // 💰 Fiyat Aralığı Seçimi
+              StatefulBuilder(
+                builder: (BuildContext context, StateSetter setModalState) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Fiyat Aralığı",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "${selectedPriceRange.start.toInt()} ₺ - ${selectedPriceRange.end.toInt()} ₺",
+                        style: TextStyle(color: Colors.grey[700]),
+                      ),
+                      RangeSlider(
+                        values: selectedPriceRange,
+                        min: 0,
+                        max: 1000,
+                        divisions: 100,
+                        labels: RangeLabels(
+                          selectedPriceRange.start.round().toString(),
+                          selectedPriceRange.end.round().toString(),
+                        ),
+                        onChanged: (values) {
+                          setModalState(() {
+                            selectedPriceRange = values;
+                          });
+                          setState(() {});
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+
+              // 🔘 Butonlar
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      setState(() {
+                        selectedCategory = null;
+                        selectedLocation = null;
+                        selectedPriceRange = const RangeValues(0, 500);
+                        searchKeyword = '';
+                      });
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Sıfırla'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      setState(() {
+                        searchKeyword = searchController.text.trim();
+                      });
+                    },
+                    icon: const Icon(Icons.check, color: Colors.white),
+
+                    label: const Text(
+                      'Uygula',
+                      style: TextStyle(color: Colors.white),
+                    ),
+
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo,
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget buildBookCard(DocumentSnapshot book) {
+    final bookId = book.id;
+    final title = book['title'] ?? '';
+    final author = book['author'] ?? '';
+    final price = book['price']?.toDouble() ?? 0.0;
+    final originalPrice = book['original_price']?.toDouble();
+    final rating = book['rating']?.toDouble() ?? 4.3;
+    final isOnSale = book['isOnSale'] ?? false;
+    final coverUrl = book['cover_url'] ?? '';
+
+    final isFavorited = favoriteBookIds.contains(bookId);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  coverUrl,
+                  width: 70,
+                  height: 100,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              if (isOnSale)
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Sale',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () async {
+                        final userId = FirebaseAuth.instance.currentUser?.uid;
+                        if (userId == null) return;
+
+                        final favoritesRef = FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(userId)
+                            .collection('favorites')
+                            .doc(bookId);
+
+                        if (isFavorited) {
+                          await favoritesRef.delete();
+                        } else {
+                          await favoritesRef.set({'title': title});
+                        }
+
+                        setState(() {
+                          if (isFavorited) {
+                            favoriteBookIds.remove(bookId);
+                          } else {
+                            favoriteBookIds.add(bookId);
+                          }
+                        });
+                      },
+                      child: Icon(
+                        isFavorited ? Icons.favorite : Icons.favorite_border,
+                        color: isFavorited ? Colors.red : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  author,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      '\₺${price.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: Colors.indigo,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (originalPrice != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Text(
+                          '\₺${originalPrice.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            decoration: TextDecoration.lineThrough,
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: Colors.orange, size: 16),
+                        const SizedBox(width: 2),
+                        Text(
+                          rating.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
