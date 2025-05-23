@@ -1,4 +1,4 @@
-// ignore_for_file: file_names, sort_child_properties_last, use_build_context_synchronously
+// ignore_for_file: file_names, sort_child_properties_last, use_build_context_synchronously, deprecated_member_use
 
 import 'package:book_mate/pages/chatPage.dart';
 import 'package:book_mate/pages/conversationsPage.dart';
@@ -20,6 +20,17 @@ class _MainPageState extends State<MainPage> {
   bool showIncoming = false;
   bool showSent = false;
   bool showSuccess = false;
+  late Future<DocumentSnapshot> _userFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      _userFuture =
+          FirebaseFirestore.instance.collection('users').doc(uid).get();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +112,7 @@ class _MainPageState extends State<MainPage> {
         },
         backgroundColor: Colors.indigo,
         child: const Icon(Icons.chat),
-        tooltip: 'Mesajlar',
+        tooltip: 'Messages',
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
@@ -145,180 +156,30 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  Widget _buildSuccessList() {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-
-    final swapStream =
-        FirebaseFirestore.instance
-            .collection('successful_swaps')
-            .where('accepted_by', isEqualTo: userId)
-            .orderBy('timestamp', descending: true)
-            .snapshots();
-
-    final purchaseStream =
-        FirebaseFirestore.instance
-            .collection('successful_purchases')
-            .where('buyer_id', isEqualTo: userId)
-            .orderBy('timestamp', descending: true)
-            .snapshots();
-
-    return FutureBuilder<List<QuerySnapshot>>(
-      future: Future.wait([swapStream.first, purchaseStream.first]),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData ||
-            snapshot.data == null ||
-            snapshot.data!.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: Text("Henüz başarılı işlem yok.")),
-          );
-        }
-
-        final swapDocs = snapshot.data![0].docs;
-        final purchaseDocs = snapshot.data![1].docs;
-
-        final combined = [
-          ...swapDocs.map((doc) => {'type': 'swap', 'doc': doc}),
-          ...purchaseDocs.map((doc) => {'type': 'purchase', 'doc': doc}),
-        ];
-
-        combined.sort((a, b) {
-          final aDoc = a['doc'] as QueryDocumentSnapshot?;
-          final bDoc = b['doc'] as QueryDocumentSnapshot?;
-          final aTime = (aDoc?.data() as Map?)?['timestamp'] as Timestamp?;
-          final bTime = (bDoc?.data() as Map?)?['timestamp'] as Timestamp?;
-          if (aTime == null && bTime == null) return 0;
-          if (aTime == null) return 1;
-          if (bTime == null) return -1;
-          return bTime.compareTo(aTime);
-        });
-
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: combined.length,
-          itemBuilder: (context, index) {
-            final type = combined[index]['type'];
-            final doc = combined[index]['doc'] as QueryDocumentSnapshot;
-            final data = doc.data() as Map<String, dynamic>;
-            final timestamp = (data['timestamp'] as Timestamp).toDate();
-
-            return FutureBuilder<List<DocumentSnapshot>>(
-              future:
-                  type == 'swap'
-                      ? Future.wait([
-                        FirebaseFirestore.instance
-                            .collection('market_books')
-                            .doc(data['offered_book_id'])
-                            .get(),
-                        FirebaseFirestore.instance
-                            .collection('market_books')
-                            .doc(data['requested_book_id'])
-                            .get(),
-                      ])
-                      : Future.wait([
-                        FirebaseFirestore.instance
-                            .collection('market_books')
-                            .doc(data['book_id'])
-                            .get(),
-                      ]),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: LinearProgressIndicator(),
-                  );
-                }
-
-                final bookA =
-                    snapshot.data![0].data() as Map<String, dynamic>? ?? {};
-                final bookB =
-                    type == 'swap'
-                        ? snapshot.data![1].data() as Map<String, dynamic>? ??
-                            {}
-                        : {};
-
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              type == 'swap'
-                                  ? Icons.swap_horiz
-                                  : Icons.shopping_cart,
-                              color:
-                                  type == 'swap' ? Colors.orange : Colors.green,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              type == 'swap'
-                                  ? "Swap Successful"
-                                  : "Purchase Successful",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        if (type == 'swap')
-                          Text(
-                            "${bookA['title'] ?? 'Book'} ↔ ${bookB['title'] ?? 'Book'}",
-                            style: const TextStyle(fontSize: 15),
-                          )
-                        else
-                          Text(
-                            "${bookA['title'] ?? 'Book'} was purchased.",
-                            style: const TextStyle(fontSize: 15),
-                          ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "📅 ${timestamp.day}.${timestamp.month}.${timestamp.year} ${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}",
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
-    );
-  }
-
   Widget _buildHeader(User? user) {
-    if (user == null) return const SizedBox();
+    if (user == null) {
+      return const SizedBox();
+    }
 
     return FutureBuilder<DocumentSnapshot>(
-      future:
-          FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
+      future: _userFuture,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
             padding: EdgeInsets.all(16),
             child: CircularProgressIndicator(),
           );
         }
 
+        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text("User information could not be retrieved."),
+          );
+        }
+
         final data = snapshot.data!.data() as Map<String, dynamic>?;
-        final fullName = data?['fullName'] ?? "kullanıcı";
+        final fullName = data?['fullName'] ?? "user";
 
         return Padding(
           padding: const EdgeInsets.all(16),
@@ -333,6 +194,179 @@ class _MainPageState extends State<MainPage> {
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSuccessList() {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
+    final swapStream = FirebaseFirestore.instance
+        .collection('successful_swaps')
+        .where('accepted_by', isEqualTo: userId)
+        .orderBy('timestamp', descending: true);
+
+    final purchaseStream = FirebaseFirestore.instance
+        .collection('successful_purchases')
+        .where('buyer_id', isEqualTo: userId)
+        .orderBy('timestamp', descending: true);
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: swapStream.snapshots(),
+      builder: (context, swapSnapshot) {
+        return StreamBuilder<QuerySnapshot>(
+          stream: purchaseStream.snapshots(),
+          builder: (context, purchaseSnapshot) {
+            if (!swapSnapshot.hasData || !purchaseSnapshot.hasData) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final swapDocs = swapSnapshot.data!.docs;
+            final purchaseDocs = purchaseSnapshot.data!.docs;
+
+            final combined = [
+              ...swapDocs.map((doc) => {'type': 'swap', 'doc': doc}),
+              ...purchaseDocs.map((doc) => {'type': 'purchase', 'doc': doc}),
+            ];
+
+            combined.sort((a, b) {
+              final aTime =
+                  ((a['doc'] as QueryDocumentSnapshot).data()
+                          as Map)['timestamp']
+                      as Timestamp;
+              final bTime =
+                  ((b['doc'] as QueryDocumentSnapshot).data()
+                          as Map)['timestamp']
+                      as Timestamp;
+              return bTime.compareTo(aTime);
+            });
+
+            if (combined.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Text(
+                    "No successful transactions yet.",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: combined.length,
+              itemBuilder: (context, index) {
+                final type = combined[index]['type'];
+                final doc = combined[index]['doc'] as QueryDocumentSnapshot;
+                final data = doc.data() as Map<String, dynamic>;
+                final timestamp = (data['timestamp'] as Timestamp).toDate();
+
+                return FutureBuilder<List<DocumentSnapshot>>(
+                  future:
+                      type == 'swap'
+                          ? Future.wait([
+                            FirebaseFirestore.instance
+                                .collection('market_books')
+                                .doc(data['offered_book_id'])
+                                .get(),
+                            FirebaseFirestore.instance
+                                .collection('market_books')
+                                .doc(data['requested_book_id'])
+                                .get(),
+                          ])
+                          : Future.wait([
+                            FirebaseFirestore.instance
+                                .collection('market_books')
+                                .doc(data['book_id'])
+                                .get(),
+                          ]),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: LinearProgressIndicator(),
+                      );
+                    }
+
+                    final bookA =
+                        snapshot.data![0].data() as Map<String, dynamic>? ?? {};
+                    final bookB =
+                        type == 'swap'
+                            ? snapshot.data![1].data()
+                                    as Map<String, dynamic>? ??
+                                {}
+                            : {};
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  type == 'swap'
+                                      ? Icons.swap_horiz
+                                      : Icons.shopping_cart,
+                                  color:
+                                      type == 'swap'
+                                          ? Colors.orange
+                                          : Colors.green,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  type == 'swap'
+                                      ? "Swap Successful"
+                                      : "Purchase Successful",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            if (type == 'swap')
+                              Text(
+                                "${bookA['title'] ?? 'Book'} ↔ ${bookB['title'] ?? 'Book'}",
+                                style: const TextStyle(fontSize: 15),
+                              )
+                            else
+                              Text(
+                                "${bookA['title'] ?? 'Book'} was purchased.",
+                                style: const TextStyle(fontSize: 15),
+                              ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "📅 ${timestamp.day}.${timestamp.month}.${timestamp.year} ${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}",
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -478,8 +512,8 @@ class _MainPageState extends State<MainPage> {
                       children: [
                         Text(
                           isIncoming
-                              ? "$otherUserName size takas teklifi gönderdi:"
-                              : "$otherUserName adlı kullanıcıya takas teklifi gönderdiniz:",
+                              ? "$otherUserName sent you a trade offer:"
+                              : "$otherUserName you sent a trade offer to:",
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
@@ -491,7 +525,7 @@ class _MainPageState extends State<MainPage> {
                             _buildBookCard(
                               theirBook['cover_url'],
                               theirBook['title'],
-                              'Onun Kitabı',
+                              'Their book',
                             ),
                             const Icon(
                               Icons.compare_arrows,
@@ -501,7 +535,7 @@ class _MainPageState extends State<MainPage> {
                             _buildBookCard(
                               yourBook['cover_url'],
                               yourBook['title'],
-                              'Senin Kitabın',
+                              'Your Book',
                             ),
                           ],
                         ),
@@ -523,7 +557,7 @@ class _MainPageState extends State<MainPage> {
                                 Icons.chat,
                                 color: Colors.indigo,
                               ),
-                              tooltip: 'Mesaj Gönder',
+                              tooltip: 'Send Message',
                               onPressed: () {
                                 Navigator.push(
                                   context,
@@ -543,13 +577,13 @@ class _MainPageState extends State<MainPage> {
                                   Icons.cancel,
                                   color: Colors.red,
                                 ),
-                                tooltip: 'Takas isteğini iptal et',
+                                tooltip: 'Cancel trade request',
                                 onPressed: () async {
                                   await docs[index].reference.delete();
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
-                                        "Takas isteği iptal edildi.",
+                                        "The trade request was canceled.",
                                       ),
                                     ),
                                   );
@@ -561,10 +595,9 @@ class _MainPageState extends State<MainPage> {
                                   Icons.check_circle,
                                   color: Colors.green,
                                 ),
-                                tooltip: 'Kabul Et',
+                                tooltip: 'Accept',
                                 onPressed: () async {
                                   try {
-                                    // 1. Kitapları al
                                     final requestedBookRef = FirebaseFirestore
                                         .instance
                                         .collection('market_books')
@@ -574,40 +607,62 @@ class _MainPageState extends State<MainPage> {
                                         .collection('market_books')
                                         .doc(offeredBookId);
 
-                                    // 2. Kitapların sahipliğini değiştir
+                                    // 🔄 Kullanıcı bilgilerini al
+                                    final requesterDoc =
+                                        await FirebaseFirestore.instance
+                                            .collection('users')
+                                            .doc(requesterId)
+                                            .get();
+                                    final accepterDoc =
+                                        await FirebaseFirestore.instance
+                                            .collection('users')
+                                            .doc(bookOwnerId)
+                                            .get();
+
+                                    final requesterName =
+                                        requesterDoc['fullName'] ?? 'User';
+                                    final accepterName =
+                                        accepterDoc['fullName'] ?? 'User';
+
+                                    // 🔁 Kitapların sahipliğini ve isim bilgisini güncelle + marketten kaldır (approved false)
                                     await requestedBookRef.update({
                                       'owner_id': requesterId,
+                                      'owner_name': requesterName,
+                                      'approved': false,
                                     });
                                     await offeredBookRef.update({
                                       'owner_id': bookOwnerId,
+                                      'owner_name': accepterName,
+                                      'approved': false,
                                     });
 
-                                    // 3. Başarılı takas koleksiyonuna ekle
+                                    // ✅ Takas başarılı olarak kaydet
                                     await FirebaseFirestore.instance
                                         .collection('successful_swaps')
                                         .add({
                                           'requested_book_id': requestedBookId,
                                           'offered_book_id': offeredBookId,
                                           'accepted_by': bookOwnerId,
+                                          'request_by': requesterId,
                                           'timestamp':
                                               FieldValue.serverTimestamp(),
                                         });
 
-                                    // 4. Bildirimi (notification) sil
+                                    // ❌ Bildirimi (isteği) sil
                                     await docs[index].reference.delete();
 
-                                    // 5. Geri bildirim ver
+                                    // 🎉 Başarı mesajı
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
-                                          "Takas başarıyla tamamlandı.",
+                                          "The swap was completed successfully.",
                                         ),
                                       ),
                                     );
                                   } catch (e) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text("Hata: ${e.toString()}"),
+                                        content: Text("Error: ${e.toString()}"),
                                       ),
                                     );
                                   }
@@ -618,12 +673,14 @@ class _MainPageState extends State<MainPage> {
                                   Icons.close,
                                   color: Colors.red,
                                 ),
-                                tooltip: 'Reddet',
+                                tooltip: 'Reject',
                                 onPressed: () async {
                                   await docs[index].reference.delete();
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text("Takas reddedildi."),
+                                      content: Text(
+                                        "The exchange was rejected.",
+                                      ),
                                     ),
                                   );
                                 },
@@ -660,7 +717,7 @@ class _MainPageState extends State<MainPage> {
           ),
           const SizedBox(height: 6),
           Text(
-            title ?? 'Kitap',
+            title ?? 'Book',
             maxLines: 2,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
@@ -669,9 +726,7 @@ class _MainPageState extends State<MainPage> {
           Chip(
             label: Text(label, style: const TextStyle(fontSize: 11)),
             backgroundColor:
-                label == 'Senin Kitabın'
-                    ? Colors.blue[100]
-                    : Colors.orange[100],
+                label == 'Your Book' ? Colors.blue[100] : Colors.orange[100],
           ),
         ],
       ),
@@ -746,7 +801,7 @@ class FavoritesPage extends StatelessWidget {
                   final category = data['category'] ?? '';
                   final location = data['location'] ?? '';
                   final ownerName = data['owner_name'] ?? '';
-                  final rating = data['rating']?.toDouble() ?? 0.0;
+                  final rating = data['average_rating']?.toDouble() ?? 0.0;
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 20),

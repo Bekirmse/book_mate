@@ -1,4 +1,4 @@
-// ignore_for_file: file_names, use_build_context_synchronously, deprecated_member_use, duplicate_ignore, unnecessary_string_escapes
+// ignore_for_file: file_names, use_build_context_synchronously, deprecated_member_use, duplicate_ignore, unnecessary_string_escapes, avoid_types_as_parameter_names
 
 import 'package:book_mate/pages/chatPage.dart';
 import 'package:book_mate/pages/fake_payment_page.dart';
@@ -262,12 +262,11 @@ class _MarketPageState extends State<MarketPage> {
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.info_outline, size: 48, color: Colors.grey),
                     SizedBox(height: 16),
                     Text(
-                      "Filtrelere uygun kitap bulunamadı.",
+                      "No books found matching the filters.",
                       style: TextStyle(fontSize: 16, color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
@@ -423,7 +422,10 @@ class _MarketPageState extends State<MarketPage> {
                                 size: 18,
                               ),
                               Text(
-                                (book['average_rating'] as double? ?? 0.0)
+                                ((book.data() as Map<String, dynamic>)
+                                            .containsKey('average_rating')
+                                        ? book['average_rating']
+                                        : 0.0)
                                     .toStringAsFixed(1),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
@@ -431,27 +433,164 @@ class _MarketPageState extends State<MarketPage> {
                               ),
                             ],
                           ),
-
                           const SizedBox(height: 10),
 
-                          Row(),
+                          // Bu kısım artık HERKES için geçerli
+                          const SizedBox(height: 12),
+                          const Text(
+                            "Comments & Ratings",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          FutureBuilder<QuerySnapshot>(
+                            future:
+                                FirebaseFirestore.instance
+                                    .collection('market_books')
+                                    .doc(bookId)
+                                    .collection('ratings')
+                                    .orderBy('timestamp', descending: true)
+                                    .limit(3)
+                                    .get(),
+                            builder: (context, snap) {
+                              if (!snap.hasData) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              }
+                              final docs = snap.data!.docs;
+                              if (docs.isEmpty) {
+                                return const Text(
+                                  "No comments have been made yet.",
+                                );
+                              }
+
+                              return Column(
+                                children:
+                                    docs.map((doc) {
+                                      final data =
+                                          doc.data() as Map<String, dynamic>;
+                                      final stars = data['stars'] ?? 0;
+                                      final comment = data['comment'] ?? '';
+                                      final timestamp =
+                                          (data['timestamp'] as Timestamp?)
+                                              ?.toDate();
+                                      final userId = data['user_id'];
+
+                                      return FutureBuilder<DocumentSnapshot>(
+                                        future:
+                                            FirebaseFirestore.instance
+                                                .collection('users')
+                                                .doc(userId)
+                                                .get(),
+                                        builder: (context, userSnap) {
+                                          String username = "Kullanıcı";
+                                          if (userSnap.hasData &&
+                                              userSnap.data!.exists &&
+                                              userSnap.data!.data() != null) {
+                                            username =
+                                                userSnap.data!.get(
+                                                  'fullName',
+                                                ) ??
+                                                "User";
+                                          }
+
+                                          return Card(
+                                            margin: const EdgeInsets.symmetric(
+                                              vertical: 6,
+                                            ),
+                                            elevation: 2,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(12),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.person,
+                                                        size: 20,
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        username,
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                      const Spacer(),
+                                                      Row(
+                                                        children: List.generate(
+                                                          5,
+                                                          (index) {
+                                                            return Icon(
+                                                              index < stars
+                                                                  ? Icons.star
+                                                                  : Icons
+                                                                      .star_border,
+                                                              color:
+                                                                  Colors.amber,
+                                                              size: 16,
+                                                            );
+                                                          },
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  if (timestamp != null) ...[
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      "${timestamp.day}.${timestamp.month}.${timestamp.year}",
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: Colors.grey[600],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    comment,
+                                                    style: const TextStyle(
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    }).toList(),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Yorum yapma butonu SADECE kitap sahibi DEĞİLSE gösterilsin
                           if (!isCurrentUserOwner)
                             Column(
                               children: [
+                                const SizedBox(height: 12),
                                 Row(
                                   children: [
                                     _buildActionButton(
                                       Icons.swap_horiz,
                                       'Swap',
                                       Colors.orange,
-                                      () {
-                                        _openSwapDialog(
-                                          context,
-                                          book,
-                                          bookId,
-                                          bookOwnerId,
-                                        );
-                                      },
+                                      () => _openSwapDialog(
+                                        context,
+                                        book,
+                                        bookId,
+                                        bookOwnerId,
+                                      ),
                                     ),
                                     const SizedBox(width: 10),
                                     _buildActionButton(
@@ -502,210 +641,35 @@ class _MarketPageState extends State<MarketPage> {
                                       Icons.report,
                                       'Report',
                                       Colors.red,
-                                      () {
-                                        _showReportDialog(bookId, bookOwnerId);
-                                      },
+                                      () => _showReportDialog(
+                                        bookId,
+                                        bookOwnerId,
+                                      ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 10),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 12),
-                                    const Text(
-                                      "Comments & Ratings",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                const SizedBox(height: 12),
+                                ElevatedButton.icon(
+                                  icon: const Icon(
+                                    Icons.rate_review,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text(
+                                    "Rate / Comment",
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.indigo,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 12,
                                     ),
-                                    const SizedBox(height: 8),
-                                    FutureBuilder<QuerySnapshot>(
-                                      future:
-                                          FirebaseFirestore.instance
-                                              .collection('market_books')
-                                              .doc(bookId)
-                                              .collection('ratings')
-                                              .orderBy(
-                                                'timestamp',
-                                                descending: true,
-                                              )
-                                              .limit(3)
-                                              .get(),
-                                      builder: (context, snap) {
-                                        if (!snap.hasData) {
-                                          return const Center(
-                                            child: CircularProgressIndicator(),
-                                          );
-                                        }
-                                        final docs = snap.data!.docs;
-                                        if (docs.isEmpty) {
-                                          return const Text(
-                                            "No comments have been made yet.",
-                                          );
-                                        }
-
-                                        return Column(
-                                          children:
-                                              docs.map((doc) {
-                                                final data =
-                                                    doc.data()
-                                                        as Map<String, dynamic>;
-                                                final stars =
-                                                    data['stars'] ?? 0;
-                                                final comment =
-                                                    data['comment'] ?? '';
-                                                final timestamp =
-                                                    (data['timestamp']
-                                                            as Timestamp?)
-                                                        ?.toDate();
-                                                final userId = doc.id;
-
-                                                return FutureBuilder<
-                                                  DocumentSnapshot
-                                                >(
-                                                  future:
-                                                      FirebaseFirestore.instance
-                                                          .collection('users')
-                                                          .doc(userId)
-                                                          .get(),
-                                                  builder: (context, userSnap) {
-                                                    String username =
-                                                        "Kullanıcı";
-                                                    if (userSnap.hasData &&
-                                                        userSnap.data!.exists) {
-                                                      username =
-                                                          userSnap
-                                                              .data!['fullName'] ??
-                                                          "User";
-                                                    }
-
-                                                    return Card(
-                                                      margin:
-                                                          const EdgeInsets.symmetric(
-                                                            vertical: 6,
-                                                          ),
-                                                      elevation: 2,
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              12,
-                                                            ),
-                                                      ),
-                                                      child: Padding(
-                                                        padding:
-                                                            const EdgeInsets.all(
-                                                              12,
-                                                            ),
-                                                        child: Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            Row(
-                                                              children: [
-                                                                const Icon(
-                                                                  Icons.person,
-                                                                  size: 20,
-                                                                ),
-                                                                const SizedBox(
-                                                                  width: 6,
-                                                                ),
-                                                                Text(
-                                                                  username,
-                                                                  style: const TextStyle(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold,
-                                                                  ),
-                                                                ),
-                                                                const Spacer(),
-                                                                Row(
-                                                                  children: List.generate(5, (
-                                                                    index,
-                                                                  ) {
-                                                                    return Icon(
-                                                                      index <
-                                                                              stars
-                                                                          ? Icons
-                                                                              .star
-                                                                          : Icons
-                                                                              .star_border,
-                                                                      color:
-                                                                          Colors
-                                                                              .amber,
-                                                                      size: 16,
-                                                                    );
-                                                                  }),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                            if (timestamp !=
-                                                                null) ...[
-                                                              const SizedBox(
-                                                                height: 4,
-                                                              ),
-                                                              Text(
-                                                                "${timestamp.day}.${timestamp.month}.${timestamp.year}",
-                                                                style: TextStyle(
-                                                                  fontSize: 12,
-                                                                  color:
-                                                                      Colors
-                                                                          .grey[600],
-                                                                ),
-                                                              ),
-                                                            ],
-                                                            const SizedBox(
-                                                              height: 8,
-                                                            ),
-                                                            Text(
-                                                              comment,
-                                                              style:
-                                                                  const TextStyle(
-                                                                    fontSize:
-                                                                        14,
-                                                                  ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                );
-                                              }).toList(),
-                                        );
-                                      },
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                    const SizedBox(height: 12),
-                                    ElevatedButton.icon(
-                                      icon: const Icon(
-                                        Icons.rate_review,
-                                        color: Colors.white,
-                                      ),
-                                      label: const Text(
-                                        "Rate / Comment",
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.indigo,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 20,
-                                          vertical: 12,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                      ),
-                                      onPressed:
-                                          () => _showRatingDialog(
-                                            context,
-                                            bookId,
-                                          ),
-                                    ),
-                                  ],
+                                  ),
+                                  onPressed:
+                                      () => _showRatingDialog(context, bookId),
                                 ),
                               ],
                             ),
@@ -788,19 +752,27 @@ class _MarketPageState extends State<MarketPage> {
   }
 
   void _showRatingDialog(BuildContext context, String bookId) async {
+    int selectedStars = 0;
+    final commentCtrl = TextEditingController();
+
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
-        int selectedStars = 0;
-        TextEditingController commentCtrl = TextEditingController();
-
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: const Text("Puan Ver"),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                "Rate This Book",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(5, (index) {
@@ -810,6 +782,7 @@ class _MarketPageState extends State<MarketPage> {
                               ? Icons.star
                               : Icons.star_border,
                           color: Colors.amber,
+                          size: 30,
                         ),
                         onPressed: () {
                           setState(() {
@@ -819,10 +792,18 @@ class _MarketPageState extends State<MarketPage> {
                       );
                     }),
                   ),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: commentCtrl,
-                    decoration: const InputDecoration(
-                      hintText: "Yorum yazın (isteğe bağlı)",
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: "Write a comment (optional)",
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
                 ],
@@ -830,27 +811,36 @@ class _MarketPageState extends State<MarketPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text("İptal"),
+                  child: const Text("Cancel"),
                 ),
-                ElevatedButton(
-                  child: const Text("Gönder"),
+                ElevatedButton.icon(
                   onPressed: () async {
+                    if (selectedStars == 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Please select a star rating."),
+                        ),
+                      );
+                      return;
+                    }
+
                     final uid = FirebaseAuth.instance.currentUser!.uid;
                     final userEmail = FirebaseAuth.instance.currentUser!.email;
 
+                    // Yorum gönder
                     await FirebaseFirestore.instance
                         .collection('market_books')
                         .doc(bookId)
                         .collection('ratings')
-                        .doc(uid)
-                        .set({
+                        .add({
+                          'user_id': uid,
                           'stars': selectedStars,
                           'comment': commentCtrl.text.trim(),
                           'timestamp': Timestamp.now(),
                           'user': userEmail,
                         });
 
-                    // Ortalama güncelleme
+                    // Ortalama güncelle
                     final ratingsSnap =
                         await FirebaseFirestore.instance
                             .collection('market_books')
@@ -858,20 +848,36 @@ class _MarketPageState extends State<MarketPage> {
                             .collection('ratings')
                             .get();
 
-                    final total = ratingsSnap.docs.fold<int>(
+                    final totalStars = ratingsSnap.docs.fold<int>(
                       0,
                       (sum, doc) => sum + ((doc['stars'] ?? 0) as int),
                     );
-                    final avg = total / ratingsSnap.docs.length;
+                    final average = totalStars / ratingsSnap.docs.length;
 
                     await FirebaseFirestore.instance
                         .collection('market_books')
                         .doc(bookId)
-                        .update({'average_rating': avg});
+                        .update({'average_rating': average});
 
                     Navigator.pop(context);
-                    setState(() {}); // Ana ekranı güncelle
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Your rating has been submitted."),
+                      ),
+                    );
                   },
+                  icon: const Icon(Icons.send, size: 18, color: Colors.white),
+                  label: const Text(
+                    "Send",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
                 ),
               ],
             );
@@ -1036,11 +1042,14 @@ class _MarketPageState extends State<MarketPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text("İptal"),
+                  child: const Text("Cancel"),
                 ),
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.send, size: 18),
-                  label: const Text("Gönder"),
+                  icon: const Icon(Icons.send, size: 18, color: Colors.white),
+                  label: const Text(
+                    "Send",
+                    style: TextStyle(color: Colors.white),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.indigo,
                     padding: const EdgeInsets.symmetric(
@@ -1106,7 +1115,7 @@ class _MarketPageState extends State<MarketPage> {
             children: [
               const Center(
                 child: Text(
-                  'Kitapları Filtrele',
+                  'Filter Books',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -1115,7 +1124,7 @@ class _MarketPageState extends State<MarketPage> {
               TextField(
                 controller: searchController,
                 decoration: InputDecoration(
-                  labelText: 'Kitap Adı',
+                  labelText: 'Book Name',
                   prefixIcon: const Icon(Icons.search),
                   filled: true,
                   fillColor: Colors.grey[100],
@@ -1130,7 +1139,7 @@ class _MarketPageState extends State<MarketPage> {
               DropdownButtonFormField<String>(
                 value: selectedCategory,
                 decoration: InputDecoration(
-                  labelText: 'Kategori',
+                  labelText: 'Category',
                   prefixIcon: const Icon(Icons.category),
                   filled: true,
                   fillColor: Colors.grey[100],
@@ -1155,7 +1164,7 @@ class _MarketPageState extends State<MarketPage> {
               DropdownButtonFormField<String>(
                 value: selectedLocation,
                 decoration: InputDecoration(
-                  labelText: 'Lokasyon',
+                  labelText: 'Location',
                   prefixIcon: const Icon(Icons.location_on),
                   filled: true,
                   fillColor: Colors.grey[100],
@@ -1183,7 +1192,7 @@ class _MarketPageState extends State<MarketPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        "Fiyat Aralığı",
+                        "Price Range",
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
@@ -1230,7 +1239,7 @@ class _MarketPageState extends State<MarketPage> {
                       });
                     },
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Sıfırla'),
+                    label: const Text('Reset'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
                       side: const BorderSide(color: Colors.red),
@@ -1247,7 +1256,7 @@ class _MarketPageState extends State<MarketPage> {
                     icon: const Icon(Icons.check, color: Colors.white),
 
                     label: const Text(
-                      'Uygula',
+                      'Apply',
                       style: TextStyle(color: Colors.white),
                     ),
 

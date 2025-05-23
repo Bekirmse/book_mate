@@ -63,9 +63,9 @@ class _ProfilePageState extends State<ProfilePage> {
     });
 
     setState(() => profileImageUrl = url);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Profil resmi güncellendi.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Profile picture has been updated.')),
+    );
   }
 
   void _changePassword() async {

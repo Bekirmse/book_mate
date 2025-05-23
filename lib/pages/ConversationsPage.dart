@@ -1,4 +1,4 @@
-// ignore_for_file: file_names, use_build_context_synchronously
+// ignore_for_file: file_names, use_build_context_synchronously, deprecated_member_use
 
 import 'package:book_mate/pages/chatPage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
