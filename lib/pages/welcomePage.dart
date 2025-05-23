@@ -1,5 +1,3 @@
-// ignore_for_file: file_names
-
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'loginPage.dart';
@@ -12,38 +10,39 @@ class WelcomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF272727),
-
       body: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const SizedBox(height: 30),
-
-            // 🎞️ Lottie Animasyonu
-            SizedBox(
-              height: 360,
-              child: Lottie.asset('assets/animations/welcome_animation.json'),
-            ),
-
-            // ✨ Slogan
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.0),
-              child: Text(
-                'BookMate: Where students buy, sell, and swap smarter.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-
-            // 🔘 Butonlar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: 500,
+              ), // 👈 Web uyumu için
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // 🎞️ Animasyon
+                  SizedBox(
+                    height: 300,
+                    child: Lottie.asset(
+                      'assets/animations/welcome_animation.json',
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ✨ Slogan
+                  const Text(
+                    'BookMate: Where students buy, sell, and swap smarter.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
+                  // 🔘 Butonlar
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
@@ -94,9 +93,7 @@ class WelcomePage extends StatelessWidget {
                 ],
               ),
             ),
-
-            const SizedBox(height: 30),
-          ],
+          ),
         ),
       ),
     );

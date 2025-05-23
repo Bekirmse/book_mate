@@ -45,8 +45,8 @@ class _ChatPageState extends State<ChatPage> {
 
     if (mounted) {
       setState(() {
-        receiverName = receiverDoc['fullName'] ?? 'Alıcı';
-        senderName = senderDoc['fullName'] ?? 'Gönderici';
+        receiverName = receiverDoc['fullName'] ?? 'Receiver';
+        senderName = senderDoc['fullName'] ?? 'Sender';
         FirebaseFirestore.instance.collection('users').doc(user!.uid).update({
           'lastSeen': FieldValue.serverTimestamp(),
         });
@@ -83,20 +83,66 @@ class _ChatPageState extends State<ChatPage> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Mesajı sil'),
-            content: const Text('Bu mesajı silmek istiyor musunuz?'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+            contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+            title: Row(
+              children: const [
+                Icon(Icons.delete_outline, color: Colors.red),
+                SizedBox(width: 8),
+                Text(
+                  'Delete Message',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ],
+            ),
+            content: const Text(
+              'Do you want to delete this message?',
+              style: TextStyle(fontSize: 15),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, 'cancel'),
-                child: const Text('İptal'),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey),
+                ),
               ),
-              TextButton(
+              TextButton.icon(
                 onPressed: () => Navigator.pop(context, 'me'),
-                child: const Text('Benden Sil'),
+                icon: const Icon(
+                  Icons.person_outline,
+                  size: 18,
+                  color: Colors.orange,
+                ),
+                label: const Text(
+                  'Remove for Me',
+                  style: TextStyle(color: Colors.orange),
+                ),
               ),
-              TextButton(
+              ElevatedButton.icon(
                 onPressed: () => Navigator.pop(context, 'all'),
-                child: const Text('Herkesten Sil'),
+                icon: const Icon(
+                  Icons.public_off,
+                  size: 18,
+                  color: Colors.white,
+                ),
+                label: const Text(
+                  'Remove for Everyone',
+                  style: TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
               ),
             ],
           ),
@@ -105,10 +151,10 @@ class _ChatPageState extends State<ChatPage> {
     if (result == 'all') {
       await doc.reference.delete();
     } else if (result == 'me') {
-      // Benden sil özelliği için mesajların kullanıcıya özel gösterimi yapılmalı (uygulanmadı)
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Sadece kendinizden silme henüz desteklenmiyor.'),
+          content: Text('Removing only for yourself is not supported yet.'),
+          backgroundColor: Colors.orange,
         ),
       );
     }
@@ -123,7 +169,7 @@ class _ChatPageState extends State<ChatPage> {
               .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text("Henüz mesaj yok."));
+          return const Center(child: Text("No messages yet."));
         }
 
         final allMessages = snapshot.data!.docs;
@@ -165,7 +211,7 @@ class _ChatPageState extends State<ChatPage> {
                     maxWidth: MediaQuery.of(context).size.width * 0.75,
                   ),
                   decoration: BoxDecoration(
-                    color: isMe ? Colors.indigo[100] : Colors.grey[200],
+                    color: isMe ? Colors.indigo[100] : Colors.grey[100],
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(12),
                       topRight: const Radius.circular(12),
@@ -176,19 +222,18 @@ class _ChatPageState extends State<ChatPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        msg['message'],
-                        style: const TextStyle(fontSize: 15),
-                      ),
-                      const SizedBox(height: 6),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
                           Text(
                             formattedTime,
                             style: TextStyle(
@@ -197,7 +242,7 @@ class _ChatPageState extends State<ChatPage> {
                             ),
                           ),
                           if (isMe) ...[
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 4),
                             Icon(
                               seen ? Icons.done_all : Icons.check,
                               size: 16,
@@ -205,6 +250,11 @@ class _ChatPageState extends State<ChatPage> {
                             ),
                           ],
                         ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        msg['message'],
+                        style: const TextStyle(fontSize: 15),
                       ),
                     ],
                   ),
@@ -220,35 +270,62 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.bookTitle)),
+      appBar: AppBar(
+        automaticallyImplyLeading: true,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+
+          children: [
+            Text(widget.bookTitle, style: const TextStyle(fontSize: 16)),
+            if (receiverName.isNotEmpty)
+              Text(
+                receiverName,
+                style: const TextStyle(fontSize: 18, color: Colors.white70),
+              ),
+            const SizedBox(height: 16),
+          ],
+        ),
+        backgroundColor: Colors.indigo,
+      ),
       body: Column(
         children: [
           Expanded(child: buildMessageList()),
+          const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 4,
-            ), // Yüksekliği biraz azalttım
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Write your message...',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: 'Type your message...',
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide.none,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: sendMessage,
+                CircleAvatar(
+                  backgroundColor: Colors.indigo,
+                  child: IconButton(
+                    icon: const Icon(Icons.send, color: Colors.white),
+                    onPressed: sendMessage,
+                  ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 30),
+          const SizedBox(height: 32), // 👈 Alt boşluk eklendi
         ],
       ),
     );

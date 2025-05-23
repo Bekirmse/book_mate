@@ -103,24 +103,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration:
-            selected
-                ? BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                )
-                : null,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: selected ? Colors.indigo.shade50 : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? Colors.indigo : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: selected ? Colors.blue : Colors.grey),
-            const SizedBox(width: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: selected ? Colors.blue : Colors.black,
+            Icon(icon, size: 20, color: selected ? Colors.indigo : Colors.grey),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? Colors.indigo : Colors.black87,
+                ),
               ),
             ),
           ],
@@ -131,24 +135,82 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      color: Colors.white,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            "Admin Dashboard",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // 🧾 Başlık
+          const Text(
+            "📊 Admin Dashboard",
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+          ),
+          const Spacer(),
+
+          // 🔍 Arama Çubuğu (şimdilik pasif)
+          SizedBox(
+            width: 240,
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search...',
+                prefixIcon: const Icon(Icons.search),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+
+          // 🔔 Bildirim
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.notifications_none_outlined),
+            tooltip: 'Notifications',
+          ),
+          const SizedBox(width: 8),
+
+          // ⚙️ Ayarlar
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+          ),
+          const SizedBox(width: 8),
+
+          // 👤 Kullanıcı Bilgisi
           Row(
-            children: const [
-              Icon(Icons.notifications_none),
-              SizedBox(width: 16),
-              Icon(Icons.settings),
-              SizedBox(width: 16),
-              CircleAvatar(
-                backgroundColor: Colors.grey,
-                child: Icon(Icons.person),
+            children: [
+              const CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.indigo,
+                child: Icon(Icons.person, color: Colors.white),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    "Admin",
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  Text(
+                    "admin322@gmail.com",
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
               ),
             ],
           ),
@@ -189,9 +251,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
         final logs = snapshot.data!.docs;
 
-        if (logs.isEmpty) {
-          return const Center(child: Text("Hiç başarılı takas bulunamadı."));
-        }
+        if (logs.isEmpty) {}
 
         return ListView.builder(
           padding: const EdgeInsets.all(24),
@@ -316,7 +376,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
+                    padding: EdgeInsets.symmetric(vertical: 10),
                     child: LinearProgressIndicator(),
                   );
                 }
@@ -352,8 +412,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               if (snap.connectionState ==
                                   ConnectionState.waiting) {
                                 return Container(
-                                  width: 90,
-                                  height: 120,
+                                  width: 100,
+                                  height: 140,
                                   color: Colors.grey.shade200,
                                   child: const Center(
                                     child: CircularProgressIndicator(
@@ -364,17 +424,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               } else if (snap.hasData && snap.data != null) {
                                 return ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
-                                  child: Image.memory(
-                                    snap.data!,
-                                    width: 90,
-                                    height: 120,
-                                    fit: BoxFit.cover,
+                                  child: SizedBox(
+                                    width: 120, // Maksimum genişlik belirledik
+                                    height: 180,
+                                    child: Image.memory(
+                                      snap.data!,
+                                      fit: BoxFit.cover,
+                                      alignment: Alignment.center,
+                                    ),
                                   ),
                                 );
                               } else {
                                 return Container(
-                                  width: 90,
-                                  height: 120,
+                                  width: 100,
+                                  height: 140,
                                   color: Colors.grey.shade200,
                                   child: const Icon(
                                     Icons.broken_image,
@@ -386,11 +449,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           )
                         else
                           Container(
-                            width: 90,
-                            height: 120,
+                            width: 100,
+                            height: 140,
                             color: Colors.grey.shade200,
                             child: const Icon(Icons.image_not_supported),
                           ),
+
                         const SizedBox(width: 16),
 
                         // Kitap ve kullanıcı bilgileri + butonlar
@@ -432,7 +496,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                       Icons.delete_forever,
                                       size: 16,
                                     ),
-                                    label: const Text("Raporu Sil"),
+                                    label: const Text("Delete Report"),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.red,
                                       foregroundColor: Colors.white,
@@ -442,7 +506,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                   ElevatedButton.icon(
                                     onPressed: () => _deleteBook(bookId),
                                     icon: const Icon(Icons.delete, size: 16),
-                                    label: const Text("Kitabı Sil"),
+                                    label: const Text("Delete Book"),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.black54,
                                       foregroundColor: Colors.white,
@@ -453,7 +517,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                     onPressed:
                                         () => _editBookDialog(bookId, book),
                                     icon: const Icon(Icons.edit, size: 16),
-                                    label: const Text("Düzenle"),
+                                    label: const Text("Edit"),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.orange.shade700,
                                       foregroundColor: Colors.white,
@@ -496,7 +560,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           padding: const EdgeInsets.all(24),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
-            childAspectRatio: 3 / 4.5, // daha uzun kart görünümü
+            childAspectRatio: 3 / 6.5, // daha uzun kart görünümü
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
           ),
@@ -541,7 +605,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         } else if (snap.hasData && snap.data != null) {
                           return Image.memory(
                             snap.data!,
-                            height: 140,
+                            height: 700, // Daha dengeli görünüm
                             width: double.infinity,
                             fit: BoxFit.cover,
                           );
@@ -562,6 +626,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const SizedBox(height: 50),
                         Text(
                           data['title'] ?? '',
                           style: const TextStyle(
@@ -570,20 +635,38 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text("Author: ${data['author'] ?? ''}"),
-                        Text("Price: ${data['price']} ₺"),
-                        Text("Edition: ${data['edition'] ?? ''}"),
-                        const SizedBox(height: 8),
+                        Text("✍️ Author: ${data['author'] ?? 'N/A'}"),
+                        Text("📚 Category: ${data['category'] ?? 'N/A'}"),
+                        Text("📍 Location: ${data['location'] ?? 'N/A'}"),
+                        Text("💰 Price: ${data['price']} ₺"),
+                        Text("🖨️ Edition: ${data['edition'] ?? 'N/A'}"),
+                        Text(
+                          "⭐ Avg. Rating: ${data['average_rating']?.toStringAsFixed(1) ?? '0.0'}",
+                        ),
+                        Text("👤 Seller: ${data['owner_name'] ?? 'N/A'}"),
+                        if ((data['description'] ?? '').toString().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text("📝 ${data['description']}"),
+                          ),
+                        const SizedBox(height: 10),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             if (showApprove)
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.check_circle,
-                                  color: Colors.green,
-                                ),
+                              ElevatedButton.icon(
                                 onPressed: () => _approveBook(book.id),
+                                icon: const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                ),
+                                label: const Text(
+                                  "Approve",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                ),
                               ),
                             IconButton(
                               icon: const Icon(
@@ -693,7 +776,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         Text(
                           data['email'] ?? 'No Email',
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             color: Colors.grey,
                           ),
                         ),

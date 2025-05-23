@@ -18,6 +18,10 @@ class ConversationsPage extends StatelessWidget {
           "My Conversations",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 2,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream:
@@ -31,14 +35,11 @@ class ConversationsPage extends StatelessWidget {
           }
 
           final allMessages = snapshot.data!.docs;
-
-          // Kullanıcının katıldığı tüm mesajları filtrele
           final relevantMessages =
               allMessages.where((msg) {
                 return msg['senderId'] == userId || msg['receiverId'] == userId;
               }).toList();
 
-          // Her karşı kullanıcıyla yalnızca bir konuşmayı listele
           final uniqueConversations = <String, Map<String, dynamic>>{};
 
           for (var msg in relevantMessages) {
@@ -63,73 +64,103 @@ class ConversationsPage extends StatelessWidget {
           }
 
           if (uniqueConversations.isEmpty) {
-            return const Center(child: Text("There is no conversation yet."));
+            return const Center(
+              child: Text(
+                "There is no conversation yet.",
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            );
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(12),
-            children:
-                uniqueConversations.entries.map((entry) {
-                  final otherUserId = entry.key;
-                  final name = entry.value['name'];
-                  final bookTitle = entry.value['bookTitle'];
-                  final lastMessage = entry.value['lastMessage'];
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: uniqueConversations.length,
+            itemBuilder: (context, index) {
+              final entry = uniqueConversations.entries.elementAt(index);
+              final otherUserId = entry.key;
+              final name = entry.value['name'];
+              final bookTitle = entry.value['bookTitle'];
+              final lastMessage = entry.value['lastMessage'];
 
-                  return Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 16,
+                  ],
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 20,
+                  ),
+                  leading: CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Colors.indigo,
+                    child: Text(
+                      name.toString()[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.indigo,
-                        child: Text(name.toString()[0].toUpperCase()),
+                    ),
+                  ),
+                  title: Text(
+                    name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (bookTitle.isNotEmpty)
+                        Text(
+                          bookTitle,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      Text(
+                        lastMessage,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
                       ),
-                      title: Text(
-                        name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (bookTitle.isNotEmpty)
-                            Text(
-                              bookTitle,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontStyle: FontStyle.italic,
-                                color: Colors.grey,
-                              ),
+                    ],
+                  ),
+                  trailing: const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 18,
+                    color: Colors.grey,
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (_) => ChatPage(
+                              receiverId: otherUserId,
+                              bookTitle: bookTitle,
                             ),
-                          Text(
-                            lastMessage,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ],
                       ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (_) => ChatPage(
-                                  receiverId: otherUserId,
-                                  bookTitle: bookTitle,
-                                ),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                }).toList(),
+                    );
+                  },
+                ),
+              );
+            },
           );
         },
       ),
