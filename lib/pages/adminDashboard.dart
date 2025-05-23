@@ -308,11 +308,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   child: ListTile(
                     title: Text(
-                      "${requester['fullName'] ?? 'Kullanıcı'} → ${accepter['fullName'] ?? 'Kullanıcı'}",
+                      "${requester['fullName'] ?? 'Users'} → ${accepter['fullName'] ?? 'Users'}",
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
-                      '"${offeredBook['title'] ?? 'Kitap'}" ↔ "${requestedBook['title'] ?? 'Kitap'}"\nTarih: $timestamp',
+                      '"${offeredBook['title'] ?? 'Book'}" ↔ "${requestedBook['title'] ?? 'Book'}"\nDate: $timestamp',
                     ),
                     isThreeLine: true,
                     leading: const Icon(
